@@ -43,7 +43,7 @@ class AES_CBC_HMAC_SHA2_Base(ContentEncryptionAlgorithm):
     def generate_key(cls, rng=None):
         if rng is None:
             rng = get_random_bytes
-        return rng(cls.enc_key_size + self.mac_key_size)
+        return rng(cls.enc_key_size + cls.mac_key_size)
 
     @classmethod
     def generate_iv(cls, rng=None):
