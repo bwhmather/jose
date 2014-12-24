@@ -18,8 +18,8 @@ class AES_CBC_HMAC_SHA2_Base(unittest.TestCase):
     def test_decrypt(self):
         decrypter = self.algorithm(self.key)
 
-        plaintext = encrypter.encrypt(
-            self.ciphertext, auth_token=auth_token,
+        plaintext = decrypter.decrypt(
+            self.ciphertext, auth_token=self.auth_token,
             adata=self.adata, iv=self.iv
         )
         self.assertEqual(self.plaintext, plaintext)
