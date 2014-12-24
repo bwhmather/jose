@@ -82,7 +82,8 @@ class AES_CBC_HMAC_SHA2_Base(ContentEncryptionAlgorithm):
         enc_algorithm = AES.new(encryption_key, AES.MODE_CBC, iv)
         ciphertext = enc_algorithm.encrypt(padded_plaintext)
 
-        auth_token = self._sign(signature_key, plaintext, iv, adata)
+        auth_digest = self._sign(signature_key, plaintext, iv, adata)
+        auth_token = auth_digest[:self.key_size // 2]
 
         return ciphertext, auth_token
 
@@ -97,7 +98,8 @@ class AES_CBC_HMAC_SHA2_Base(ContentEncryptionAlgorithm):
         padded_plaintext = enc_algorithm.decrypt(ciphertext)
         plaintext = unpad_pkcs7(padded_plaintext)
 
-        calculated_auth_token = self._sign(signature_key, plaintext, iv, adata)
+        auth_digest = self._sign(signature_key, plaintext, iv, adata)
+        calculated_auth_token = auth_digest[:self.key_size // 2]
 
         if calculated_auth_token != auth_token:
             raise Exception("Mismatched authentication tag")
