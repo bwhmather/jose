@@ -25,7 +25,7 @@ class ContentEncryptionAlgorithm(object):
         raise NotImplementedError()
 
     @classmethod
-    def generage_iv(cls, rng=None):
+    def generate_iv(cls, rng=None):
         raise NotImplementedError()
 
     def encrypt(self, plaintext, adata, iv):
