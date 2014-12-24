@@ -10,7 +10,9 @@ from Crypto.PublicKey import RSA
 
 import jose
 from jose.utils import pad_pkcs7, unpad_pkcs7
-from jose.algorithms.content_encryption import A128CBC_HS256
+from jose.algorithms.content_encryption import (
+    A128CBC_HS256, A192CBC_HS384, A256CBC_HS512,
+)
 
 rsa_key = RSA.generate(2048)
 
@@ -303,7 +305,7 @@ class TestUtils(unittest.TestCase):
 
 class AES_CBC_HMAC_SHA2_Base(unittest.TestCase):
     def test_jwe_test_case(self):
-        encrypter = A128CBC_HS256(self.key)
+        encrypter = self.algorithm(self.key)
 
         ciphertext, auth_token = encrypter.encrypt(
             self.plaintext, adata=self.adata, iv=self.iv
@@ -313,6 +315,8 @@ class AES_CBC_HMAC_SHA2_Base(unittest.TestCase):
 
 
 class Test_A128CBC_HS256(AES_CBC_HMAC_SHA2_Base):
+    algorithm = A128CBC_HS256
+
     key = (
         b'\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f'
         b'\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f'
@@ -365,6 +369,8 @@ class Test_A128CBC_HS256(AES_CBC_HMAC_SHA2_Base):
 
 
 class Test_A192CBC_HS384(AES_CBC_HMAC_SHA2_Base):
+    algorithm = A192CBC_HS384
+
     key = (
         b'\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f'
         b'\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f'
@@ -411,6 +417,8 @@ class Test_A192CBC_HS384(AES_CBC_HMAC_SHA2_Base):
 
 
 class Test_A256CBC_HS512(AES_CBC_HMAC_SHA2_Base):
+    algorithm = A256CBC_HS512
+
     key = (
         b'\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f'
         b'\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f'
