@@ -35,7 +35,7 @@ class ContentEncryptionAlgorithm(object):
 
 class AES_CBC_HMAC_SHA2_Base(ContentEncryptionAlgorithm):
     def __init__(self, key):
-        if len(key) != self.key_size:
+        if len(key) != self.enc_key_size + self.mac_key_size:
             raise ValueError("key is wrong size")
         self.key = key
 
@@ -43,7 +43,7 @@ class AES_CBC_HMAC_SHA2_Base(ContentEncryptionAlgorithm):
     def generate_key(cls, rng=None):
         if rng is None:
             rng = get_random_bytes
-        return rng(cls.key_size)
+        return rng(cls.enc_key_size + self.mac_key_size)
 
     @classmethod
     def generate_iv(cls, rng=None):
@@ -56,10 +56,10 @@ class AES_CBC_HMAC_SHA2_Base(ContentEncryptionAlgorithm):
         hmac = HMAC.new(
             key,
             digestmod={
-                32: SHA256,
-                48: SHA384,
-                64: SHA512,
-            }[self.key_size]
+                16: SHA256,
+                24: SHA384,
+                32: SHA512,
+            }[self.mac_key_size]
         )
 
         hmac.update(_jwe_hash_str(plaintext, iv, adata))
@@ -74,8 +74,8 @@ class AES_CBC_HMAC_SHA2_Base(ContentEncryptionAlgorithm):
         if adata is None:
             adata = b''
 
-        signature_key = self.key[:-self.key_size // 2]
-        encryption_key = self.key[-self.key_size // 2:]
+        signature_key = self.key[:self.mac_key_size]
+        encryption_key = self.key[self.mac_key_size:]
 
         padded_plaintext = pad_pkcs7(plaintext, block_size=AES.block_size)
 
@@ -83,7 +83,7 @@ class AES_CBC_HMAC_SHA2_Base(ContentEncryptionAlgorithm):
         ciphertext = enc_algorithm.encrypt(padded_plaintext)
 
         auth_digest = self._sign(signature_key, plaintext, iv, adata)
-        auth_token = auth_digest[:self.key_size // 2]
+        auth_token = auth_digest[:self.token_size]
 
         return ciphertext, auth_token
 
@@ -91,15 +91,15 @@ class AES_CBC_HMAC_SHA2_Base(ContentEncryptionAlgorithm):
         if adata is None:
             adata = b''
 
-        signature_key = self.key[:-self.key_size // 2]
-        encryption_key = self.key[-self.key_size // 2:]
+        signature_key = self.key[:self.mac_key_size]
+        encryption_key = self.key[self.mac_key_size:]
 
         enc_algorithm = AES.new(encryption_key, AES.MODE_CBC, iv)
         padded_plaintext = enc_algorithm.decrypt(ciphertext)
         plaintext = unpad_pkcs7(padded_plaintext)
 
         auth_digest = self._sign(signature_key, plaintext, iv, adata)
-        calculated_auth_token = auth_digest[:self.key_size // 2]
+        calculated_auth_token = auth_digest[:self.token_size]
 
         if calculated_auth_token != auth_token:
             raise Exception("Mismatched authentication tag")
@@ -108,15 +108,21 @@ class AES_CBC_HMAC_SHA2_Base(ContentEncryptionAlgorithm):
 
 
 class A128CBC_HS256(AES_CBC_HMAC_SHA2_Base):
-    key_size = 32
+    enc_key_size = 16
+    mac_key_size = 16
+    token_size = 16
 
 
 class A192CBC_HS384(AES_CBC_HMAC_SHA2_Base):
-    key_size = 48
+    enc_key_size = 24
+    mac_key_size = 24
+    token_size = 24
 
 
 class A256CBC_HS512(AES_CBC_HMAC_SHA2_Base):
-    key_size = 64
+    enc_key_size = 32
+    mac_key_size = 32
+    token_size = 32
 
 
 _CONTENT_ENCRYPTION_ALGORITHMS = {
