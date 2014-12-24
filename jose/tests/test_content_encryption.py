@@ -6,7 +6,7 @@ from jose.algorithms.content_encryption import (
 
 
 class AES_CBC_HMAC_SHA2_Base(unittest.TestCase):
-    def test_jwe_test_case(self):
+    def test_encrypt(self):
         encrypter = self.algorithm(self.key)
 
         ciphertext, auth_token = encrypter.encrypt(
@@ -14,6 +14,15 @@ class AES_CBC_HMAC_SHA2_Base(unittest.TestCase):
         )
         self.assertEqual(self.ciphertext, ciphertext)
         self.assertEqual(self.auth_token, auth_token)
+
+    def test_decrypt(self):
+        decrypter = self.algorithm(self.key)
+
+        plaintext = encrypter.encrypt(
+            self.ciphertext, auth_token=auth_token,
+            adata=self.adata, iv=self.iv
+        )
+        self.assertEqual(self.plaintext, plaintext)
 
 
 class Test_A128CBC_HS256(AES_CBC_HMAC_SHA2_Base):
