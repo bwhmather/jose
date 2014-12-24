@@ -1,6 +1,8 @@
 import logging
 logger = logging.getLogger(__name__)
 
+import struct
+
 from Crypto.Random import get_random_bytes
 from Crypto.Hash import HMAC, SHA256, SHA384, SHA512
 from Crypto.Cipher import AES
@@ -8,10 +10,10 @@ from Crypto.Cipher import AES
 from jose.utils import pad_pkcs7, unpad_pkcs7
 
 
-def _jwe_hash_str(plaintext, iv, adata=b''):
+def _jwe_hash_str(ciphertext, iv, adata=b''):
     # http://tools.ietf.org/html/
     # draft-ietf-jose-json-web-algorithms-24#section-5.2.2.1
-    return b'.'.join((adata, iv, plaintext, bytes(len(adata))))
+    return b''.join((adata, iv, ciphertext, struct.pack("!Q", len(adata) * 8)))
 
 
 class ContentEncryptionAlgorithm(object):
@@ -51,7 +53,7 @@ class AES_CBC_HMAC_SHA2_Base(ContentEncryptionAlgorithm):
             rng = get_random_bytes
         return rng(16)
 
-    def _sign(self, key, plaintext, iv, adata):
+    def _sign(self, key, ciphertext, iv, adata):
         # TODO this is completely the wrong way to select the hash function
         hmac = HMAC.new(
             key,
@@ -62,7 +64,7 @@ class AES_CBC_HMAC_SHA2_Base(ContentEncryptionAlgorithm):
             }[self.mac_key_size]
         )
 
-        hmac.update(_jwe_hash_str(plaintext, iv, adata))
+        hmac.update(_jwe_hash_str(ciphertext, iv, adata))
 
         signature = hmac.digest()
 
@@ -82,7 +84,7 @@ class AES_CBC_HMAC_SHA2_Base(ContentEncryptionAlgorithm):
         enc_algorithm = AES.new(encryption_key, AES.MODE_CBC, iv)
         ciphertext = enc_algorithm.encrypt(padded_plaintext)
 
-        auth_digest = self._sign(signature_key, plaintext, iv, adata)
+        auth_digest = self._sign(signature_key, ciphertext, iv, adata)
         auth_token = auth_digest[:self.token_size]
 
         return ciphertext, auth_token
@@ -98,7 +100,7 @@ class AES_CBC_HMAC_SHA2_Base(ContentEncryptionAlgorithm):
         padded_plaintext = enc_algorithm.decrypt(ciphertext)
         plaintext = unpad_pkcs7(padded_plaintext)
 
-        auth_digest = self._sign(signature_key, plaintext, iv, adata)
+        auth_digest = self._sign(signature_key, ciphertext, iv, adata)
         calculated_auth_token = auth_digest[:self.token_size]
 
         if calculated_auth_token != auth_token:
