@@ -1,7 +1,7 @@
 import os
 import sys
 
-from setuptools import setup
+from setuptools import setup, find_packages
 from setuptools.command.bdist_rpm import bdist_rpm as _bdist_rpm
 
 here = os.path.abspath(os.path.dirname(__file__))
@@ -43,7 +43,7 @@ if __name__ == '__main__':
         version='0.2.1',
         author='Demian Brecht',
         author_email='dbrecht@demonware.net',
-        py_modules=['jose'],
+        packages=find_packages(),
         url='https://github.com/Demonware/jose',
         description='An implementation of the JOSE draft',
         install_requires=REQUIRES,
@@ -55,9 +55,10 @@ if __name__ == '__main__':
             'Operating System :: OS Independent',
             'Programming Language :: Python :: 2 :: Only',
             'Topic :: Security',
-            'Topic :: Software Development :: Libraries',],
+            'Topic :: Software Development :: Libraries',
+        ],
         cmdclass={'bdist_rpm': bdist_rpm},
-        entry_points = {
+        entry_points={
             'console_scripts': (
                 'jose = jose:_cli',
             )

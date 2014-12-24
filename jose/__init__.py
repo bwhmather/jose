@@ -15,11 +15,9 @@ import binascii
 from collections import namedtuple
 from time import time
 
-from Crypto.Hash import HMAC, SHA256, SHA384, SHA512
-from Crypto.Cipher import PKCS1_OAEP, AES
-from Crypto.PublicKey import RSA
 from Crypto.Random import get_random_bytes
-from Crypto.Signature import PKCS1_v1_5 as PKCS1_v1_5_SIG
+
+from jose import algorithms
 
 
 try:
@@ -155,30 +153,30 @@ def encrypt(claims, jwk, adata='', add_header=None, alg='RSA-OAEP',
                 'Unsupported compression algorithm: {}'.format(compression))
         plaintext = compress(plaintext)
 
-    # body encryption/hash
-    ((cipher, _), key_size), ((hash_fn, _), hash_mod) = JWA[enc]
-    iv = rng(AES.block_size)
-    encryption_key = rng((key_size // 8) + hash_mod.digest_size)
-
     if not isinstance(adata, bytes):
         # TODO this should probably just be an error
         adata = adata.encode('utf-8')
 
-    ciphertext = cipher(plaintext, encryption_key[:-hash_mod.digest_size], iv)
-    hash = hash_fn(_jwe_hash_str(plaintext, iv, adata),
-            encryption_key[-hash_mod.digest_size:], hash_mod)
+    # body encryption/hash
+    content_algorithm = algorithms.content_encryption.from_name(header['enc'])
+
+    content_iv = content_algorithm.generate_iv()
+    content_key = content_algorithm.generate_key()
+
+    ciphertext, auth_token = content_algorithm(content_key).encrypt(
+        plaintext, iv=content_iv, adata=adata
+    )
 
     # cek encryption
-    (cipher, _), _ = JWA[alg]
-    encryption_key_ciphertext = cipher(encryption_key, jwk)
+    key_algorithm = algorithms.key_encryption.from_name(header['alg'])
+    wrapped_content_key = key_algorithm(jwk).encrypt(content_key)
 
     return JWE(*list(map(b64encode_url,
             (json_encode(header).encode('utf-8'),
-            encryption_key_ciphertext,
-            iv,
+            wrapped_content_key,
+            content_iv,
             ciphertext,
-            auth_tag(hash)))))
-
+            auth_token))))
 
 
 def decrypt(jwe, jwk, adata=b'', validate_claims=True, expiry_seconds=None):
@@ -200,28 +198,24 @@ def decrypt(jwe, jwk, adata=b'', validate_claims=True, expiry_seconds=None):
     :raises: :class:`~jose.NotYetValid` if the JWT is not yet valid
     :raises: :class:`~jose.Error` if there is an error decrypting the JWE
     """
-    header, encryption_key_ciphertext, iv, ciphertext, tag = map(
+    header, wrapped_content_key, iv, ciphertext, tag = map(
         b64decode_url, jwe)
     header = json_decode(header.decode('utf-8'))
-
-
-    # decrypt cek
-    (_, decipher), _ = JWA[header['alg']]
-    encryption_key = decipher(encryption_key_ciphertext, jwk)
-
-    # decrypt body
-    ((_, decipher), _), ((hash_fn, _), mod) = JWA[header['enc']]
 
     if not isinstance(adata, bytes):
         # TODO this should probably just be an error
         adata = adata.encode('utf-8')
 
-    plaintext = decipher(ciphertext, encryption_key[:-mod.digest_size], iv)
-    hash = hash_fn(_jwe_hash_str(plaintext, iv, adata),
-            encryption_key[-mod.digest_size:], mod=mod)
+    # decrypt cek
+    key_algorithm = algorithms.key_encryption.from_name(header['alg'])
+    content_key = key_algorithm(jwk).decrypt(wrapped_content_key)
 
-    if not const_compare(auth_tag(hash), tag):
-        raise Error('Mismatched authentication tags')
+    # decrypt body
+    content_algorithm = algorithms.content_encryption.from_name(header['enc'])
+
+    plaintext = content_algorithm(content_key).decrypt(
+        ciphertext, auth_token=tag, iv=iv, adata=adata
+    )
 
     if 'zip' in header:
         try:
@@ -250,7 +244,10 @@ def sign(claims, jwk, add_header=None, alg='HS256'):
     :parameter alg: The algorithm to use to produce the signature.
     :rtype: :class:`~jose.JWS`
     """
-    (hash_fn, _), mod = JWA[alg]
+    try:
+        sign_fn, verify_fn = algorithms.signing.from_name(alg)
+    except KeyError:
+        sign_fn, verify_fn = algorithms.mac.from_name(alg)
 
     header = {}
 
@@ -264,8 +261,7 @@ def sign(claims, jwk, add_header=None, alg='HS256'):
     header = b64encode_url(json_encode(header).encode('utf-8'))
     payload = b64encode_url(json_encode(claims).encode('utf-8'))
 
-    sig = b64encode_url(hash_fn(_jws_hash_str(header, payload), jwk['k'],
-        mod=mod))
+    sig = b64encode_url(sign_fn(_jws_hash_str(header, payload), jwk['k']))
 
     return JWS(header, payload, sig)
 
@@ -289,10 +285,12 @@ def verify(jws, jwk, validate_claims=True, expiry_seconds=None):
     """
     header, payload, sig = map(b64decode_url, jws)
     header = json_decode(header.decode('utf-8'))
-    (_, verify_fn), mod = JWA[header['alg']]
+    try:
+        sign_fn, verify_fn = algorithms.signing.from_name(header['alg'])
+    except KeyError:
+        sign_fn, verify_fn = algorithms.mac.from_name(header['alg'])
 
-    if not verify_fn(_jws_hash_str(jws.header, jws.payload),
-            jwk['k'], sig, mod=mod):
+    if not verify_fn(_jws_hash_str(jws.header, jws.payload), jwk['k'], sig):
         raise Error('Mismatched signatures')
 
     claims = json_decode(b64decode_url(jws.payload).decode('utf-8'))
@@ -333,139 +331,6 @@ def b64encode_url(istr):
     if not isinstance(istr, bytes):
         raise Exception("expected bytestring")
     return urlsafe_b64encode(istr).rstrip(b'=').decode('ascii')
-
-
-def auth_tag(hmac):
-    # http://tools.ietf.org/html/
-    # draft-ietf-oauth-json-web-token-19#section-4.1.4
-    return hmac[:len(hmac) // 2]
-
-
-def pad_pkcs7(s):
-    sz = AES.block_size - (len(s) % AES.block_size)
-    # TODO would be cleaner to do `bytes(sz) * sz` but python 2 behaves
-    # strangely
-    return s + (chr(sz) * sz).encode('ascii')
-
-
-def unpad_pkcs7(s):
-    try:
-        return s[:-ord(s[-1])]
-    # Python 3 compatibility
-    except TypeError:
-        return s[:-s[-1]]
-
-
-def encrypt_oaep(plaintext, jwk):
-    return PKCS1_OAEP.new(RSA.importKey(jwk['k'])).encrypt(plaintext)
-
-
-def decrypt_oaep(ciphertext, jwk):
-    try:
-        return PKCS1_OAEP.new(RSA.importKey(jwk['k'])).decrypt(ciphertext)
-    except ValueError as e:
-        raise Error(e.args[0])
-
-
-def hmac_sign(s, key, mod=SHA256):
-    hmac = HMAC.new(key, digestmod=mod)
-    hmac.update(s)
-    return hmac.digest()
-
-
-def hmac_verify(s, key, sig, mod=SHA256):
-    hmac = HMAC.new(key, digestmod=mod)
-    hmac.update(s)
-
-    if not const_compare(hmac.digest(), sig):
-        return False
-
-    return True
-
-
-def rsa_sign(s, key, mod=SHA256):
-    key = RSA.importKey(key)
-    hash = mod.new(s)
-    return PKCS1_v1_5_SIG.new(key).sign(hash)
-
-
-def rsa_verify(s, key, sig, mod=SHA256):
-    key = RSA.importKey(key)
-    hash = mod.new(s)
-    return PKCS1_v1_5_SIG.new(key).verify(hash, sig)
-
-
-def encrypt_aescbc(plaintext, key, iv):
-    plaintext = pad_pkcs7(plaintext)
-    return AES.new(key, AES.MODE_CBC, iv).encrypt(plaintext)
-
-
-def decrypt_aescbc(ciphertext, key, iv):
-    return unpad_pkcs7(AES.new(key, AES.MODE_CBC, iv).decrypt(ciphertext))
-
-
-def const_compare(stra, strb):
-    if len(stra) != len(strb):
-        return False
-
-    try:
-        # python 2 compatibility
-        orda, ordb = list(map(ord, stra)), list(map(ord, strb))
-    except TypeError:
-        orda, ordb = stra, strb
-
-    res = 0
-    for a, b in zip(orda, ordb):
-        res |= a ^ b
-    return res == 0
-
-
-class _JWA(object):
-    """ Represents the implemented algorithms
-
-    A big TODO list can be found here:
-    http://tools.ietf.org/html/draft-ietf-jose-json-web-algorithms-24
-    """
-    _impl = {
-        'HS256': ((hmac_sign, hmac_verify), SHA256),
-        'HS384': ((hmac_sign, hmac_verify), SHA384),
-        'HS512': ((hmac_sign, hmac_verify), SHA512),
-        'RS256': ((rsa_sign, rsa_verify), SHA256),
-        'RS384': ((rsa_sign, rsa_verify), SHA384),
-        'RS512': ((rsa_sign, rsa_verify), SHA512),
-        'RSA-OAEP': ((encrypt_oaep, decrypt_oaep), 2048),
-
-        'A128CBC': ((encrypt_aescbc, decrypt_aescbc), 128),
-        'A192CBC': ((encrypt_aescbc, decrypt_aescbc), 192),
-        'A256CBC': ((encrypt_aescbc, decrypt_aescbc), 256),
-    }
-
-    def __getitem__(self, key):
-        """ Derive implementation(s) from key
-        """
-        if key in self._impl:
-            return self._impl[key]
-
-        enc, hash = self._compound_from_key(key)
-        return self._impl[enc], self._impl[hash]
-
-    def _compound_from_key(self, key):
-        try:
-            enc, hash = key.split('+')
-            return enc, hash
-        except ValueError:
-            pass
-
-        try:
-            enc, hash = key.split('-')
-            return enc, hash
-        except ValueError:
-            pass
-
-        raise Error('Unsupported algorithm: {}'.format(key))
-
-
-JWA = _JWA()
 
 
 COMPRESSION = {
@@ -555,16 +420,14 @@ def _jws_hash_str(header, claims):
 
 
 def cli_decrypt(jwt, key):
-    print(decrypt(deserialize_compact(jwt), {'k':key},
+    print(decrypt(deserialize_compact(jwt), {'k': key},
                   validate_claims=False))
 
 
 def _cli():
     import inspect
-    import sys
 
     from argparse import ArgumentParser
-    from copy import copy
 
     parser = ArgumentParser()
     subparsers = parser.add_subparsers(dest='subparser_name')

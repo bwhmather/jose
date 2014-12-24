@@ -276,34 +276,10 @@ class TestUtils(unittest.TestCase):
         self.assertFalse(jose.b64encode_url(istr).endswith('='))
 
 
-class TestJWA(unittest.TestCase):
-    def test_lookup(self):
-        impl = jose._JWA._impl
-        jose._JWA._impl = dict((k, k) for k in (
-            'HS256', 'RSA-OAEP', 'A128CBC', 'A128CBC'))
-
-        self.assertEqual(jose.JWA['HS256'], 'HS256')
-        self.assertEqual(jose.JWA['RSA-OAEP'], 'RSA-OAEP')
-        self.assertEqual(jose.JWA['A128CBC-HS256'],
-                ('A128CBC', 'HS256'))
-        self.assertEqual(jose.JWA['A128CBC+HS256'],
-                ('A128CBC', 'HS256'))
-
-        jose._JWA._impl = impl
-
-    def test_invalid_error(self):
-        try:
-            jose.JWA['bad']
-            self.fail()
-        except jose.Error as e:
-            self.assertTrue(str(e).startswith('Unsupported'))
-
-
 loader = unittest.TestLoader()
 suite = unittest.TestSuite((
     loader.loadTestsFromTestCase(TestSerializeDeserialize),
     loader.loadTestsFromTestCase(TestJWE),
     loader.loadTestsFromTestCase(TestJWS),
     loader.loadTestsFromTestCase(TestUtils),
-    loader.loadTestsFromTestCase(TestJWA),
 ))
