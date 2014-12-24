@@ -74,8 +74,8 @@ class AES_CBC_HMAC_SHA2_Base(ContentEncryptionAlgorithm):
         if adata is None:
             adata = b''
 
-        signature_key = self.key[-self.key_size // 2:]
-        encryption_key = self.key[:-self.key_size // 2]
+        signature_key = self.key[:-self.key_size // 2]
+        encryption_key = self.key[-self.key_size // 2:]
 
         padded_plaintext = pad_pkcs7(plaintext, block_size=AES.block_size)
 
@@ -89,8 +89,9 @@ class AES_CBC_HMAC_SHA2_Base(ContentEncryptionAlgorithm):
     def decrypt(self, ciphertext, auth_token, iv, adata=None):
         if adata is None:
             adata = b''
-        signature_key = self.key[-self.key_size // 2:]
-        encryption_key = self.key[:-self.key_size // 2]
+
+        signature_key = self.key[:-self.key_size // 2]
+        encryption_key = self.key[-self.key_size // 2:]
 
         enc_algorithm = AES.new(encryption_key, AES.MODE_CBC, iv)
         padded_plaintext = enc_algorithm.decrypt(ciphertext)
