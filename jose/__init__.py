@@ -18,6 +18,7 @@ from time import time
 from Crypto.Random import get_random_bytes
 
 from jose import algorithms
+from jose.exceptions import Error, Expired, NotYetValid
 
 
 try:
@@ -59,24 +60,6 @@ CLAIM_ISSUED_AT = 'iat'
 CLAIM_JWT_ID = 'jti'
 
 
-class Error(Exception):
-    """ The base error type raised by jose
-    """
-    pass
-
-
-class Expired(Error):
-    """ Raised during claims validation if a JWT has expired
-    """
-    pass
-
-
-class NotYetValid(Error):
-    """ Raised during claims validation is a JWT is not yet valid
-    """
-    pass
-
-
 def serialize_compact(jwt):
     """ Compact serialization of a :class:`~jose.JWE` or :class:`~jose.JWS`
 
@@ -92,7 +75,7 @@ def deserialize_compact(jwt):
 
     :param jwt: The serialized JWT to deserialize.
     :rtype: :class:`~jose.JWT`.
-    :raises: :class:`~jose.Error` if the JWT is malformed
+    :raises: :class:`~jose.exceptions.Error` if the JWT is malformed
     """
     parts = jwt.split('.')
 
@@ -128,7 +111,8 @@ def encrypt(claims, jwk, adata='', add_header=None, alg='RSA-OAEP',
     :param compression: The compression algorithm to use. Currently supports
                 `'DEF'`.
     :rtype: :class:`~jose.JWE`
-    :raises: :class:`~jose.Error` if there is an error producing the JWE
+    :raises: :class:`~jose.exceptions.Error` if there is an error producing
+             the JWE
     """
 
     header = {}
@@ -194,9 +178,10 @@ def decrypt(jwe, jwk, adata=b'', validate_claims=True, expiry_seconds=None):
                            when evaluating the `iat` claim. Defaults to `None`,
                            which disables `iat` claim validation.
     :rtype: :class:`~jose.JWT`
-    :raises: :class:`~jose.Expired` if the JWT has expired
-    :raises: :class:`~jose.NotYetValid` if the JWT is not yet valid
-    :raises: :class:`~jose.Error` if there is an error decrypting the JWE
+    :raises: :class:`~jose.exceptions.Expired` if the JWT has expired
+    :raises: :class:`~jose.exceptions.NotYetValid` if the JWT is not yet valid
+    :raises: :class:`~jose.exceptions.Error` if there is an error decrypting
+             the JWE
     """
     header, wrapped_content_key, iv, ciphertext, tag = map(
         b64decode_url, jwe)
@@ -279,9 +264,10 @@ def verify(jws, jwk, validate_claims=True, expiry_seconds=None):
                            when evaluating the `iat` claim. Defaults to `None`,
                            which disables `iat` claim validation.
     :rtype: :class:`~jose.JWT`
-    :raises: :class:`~jose.Expired` if the JWT has expired
-    :raises: :class:`~jose.NotYetValid` if the JWT is not yet valid
-    :raises: :class:`~jose.Error` if there is an error decrypting the JWE
+    :raises: :class:`~jose.exceptions.Expired` if the JWT has expired
+    :raises: :class:`~jose.exceptions.NotYetValid` if the JWT is not yet valid
+    :raises: :class:`~jose.exceptions.Error` if there is an error decrypting
+             the JWE
     """
     header, payload, sig = map(b64decode_url, jws)
     header = json_decode(header.decode('utf-8'))
