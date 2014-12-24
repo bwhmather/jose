@@ -9,6 +9,7 @@ from time import time
 from Crypto.PublicKey import RSA
 
 import jose
+from jose.utils import pad_pkcs7, unpad_pkcs7
 
 rsa_key = RSA.generate(2048)
 
@@ -256,6 +257,29 @@ class TestJWS(unittest.TestCase):
 
 
 class TestUtils(unittest.TestCase):
+    def test_pad_pkcs7(self):
+        self.assertEqual(
+            pad_pkcs7(b'xxxx', 8),
+            b'xxxx\x04\x04\x04\x04'
+        )
+        self.assertEqual(
+            pad_pkcs7(b'xxxxxxxx', 8),
+            b'xxxxxxxx\x08\x08\x08\x08\x08\x08\x08\x08')
+
+    def test_unpad_pkcs7(self):
+        self.assertEqual(
+            unpad_pkcs7(b'xxxx\x04\x04\x04\x04'),
+            b'xxxx'
+        )
+        self.assertEqual(
+            unpad_pkcs7(b'xxxxxxxx\x08\x08\x08\x08\x08\x08\x08\x08'),
+            b'xxxxxxxx'
+        )
+        self.assertRaises(
+            Exception,
+            unpad_pkcs7, b'xxxxxxxx\x04'
+        )
+
     def test_b64encode_url_utf8(self):
         istr = 'eric idle'.encode('utf8')
         encoded = jose.b64encode_url(istr)
