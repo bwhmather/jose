@@ -64,7 +64,7 @@ class AES_CBC_HMAC_SHA2_Base(ContentEncryptionAlgorithm):
 
         # http://tools.ietf.org/html/
         # draft-ietf-oauth-json-web-token-19#section-4.1.4
-        return signature[:len(signature) // 2]
+        return signature[:self.token_size]
 
     def encrypt(self, plaintext, iv, adata=None):
         if adata is None:
