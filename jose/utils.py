@@ -1,3 +1,4 @@
+import sys
 from base64 import urlsafe_b64encode, urlsafe_b64decode
 import binascii
 
@@ -16,13 +17,22 @@ def pad_pkcs7(s, block_size):
     return s + (chr(padding) * padding).encode('ascii')
 
 
-def unpad_pkcs7(s):
-    # TODO validation
-    try:
-        return s[:-ord(s[-1])]
-    # Python 3 compatibility
-    except TypeError:
-        return s[:-s[-1]]
+def unpad_pkcs7(s, block_size=None):
+    if not len(s):
+        raise ValueError("padded string must always have non-zero length")
+
+    if block_size is not None and len(s) % block_size:
+        raise ValueError("padded string is not a multiple of block size")
+
+    if sys.version_info < (3, 0):
+        padding = ord(s[-1])
+    else:
+        padding = s[-1]
+
+    if s[-padding:] != bytes([padding]) * padding:
+        raise ValueError("invalid padding")
+
+    return s[:-padding]
 
 
 def const_compare(stra, strb):
