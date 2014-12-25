@@ -25,7 +25,7 @@ def _hmac_verify(s, key, sig, mod=SHA256):
 def _make_hmac_signature_algorithm(mod):
     return (
         lambda s, key: _hmac_sign(s, key, mod=mod),
-        lambda s, key: _hmac_verify(s, key, mod=mod)
+        lambda s, key, sig: _hmac_verify(s, key, sig, mod=mod)
     )
 
 
