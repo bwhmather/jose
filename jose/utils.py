@@ -2,6 +2,8 @@ import sys
 from base64 import urlsafe_b64encode, urlsafe_b64decode
 import binascii
 
+from Crypto.Hash import SHA224, SHA256, SHA384, SHA512
+
 from jose.exceptions import Error
 
 
@@ -86,3 +88,12 @@ def b64encode_url(istr):
     if not isinstance(istr, bytes):
         raise Exception("expected bytestring")
     return urlsafe_b64encode(istr).rstrip(b'=').decode('ascii')
+
+
+def sha(size):
+    return {
+        224: SHA224,
+        256: SHA256,
+        384: SHA384,
+        512: SHA512,
+    }[size]
