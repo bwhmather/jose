@@ -25,14 +25,16 @@ def unpad_pkcs7(s, block_size=None):
         raise ValueError("padded string is not a multiple of block size")
 
     if sys.version_info < (3, 0):
-        padding = ord(s[-1])
+        padding_len = ord(s[-1])
+        padding = s[-1] * padding_len
     else:
-        padding = s[-1]
+        padding_len = s[-1]
+        padding = bytes([padding_len]) * padding_len
 
-    if s[-padding:] != bytes([padding]) * padding:
+    if s[-padding_len:] != padding:
         raise ValueError("invalid padding")
 
-    return s[:-padding]
+    return s[:-padding_len]
 
 
 def const_compare(stra, strb):
