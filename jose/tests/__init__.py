@@ -10,6 +10,7 @@ from time import time
 from Crypto.PublicKey import RSA
 
 import jose
+import jose.exceptions as jse
 from . import test_utils
 from . import test_content_encryption
 
@@ -31,7 +32,7 @@ class TestSerializeDeserialize(unittest.TestCase):
         try:
             jose.deserialize_compact('1.2.3.4')
             self.fail()
-        except jose.Error as e:
+        except jse.Error as e:
             self.assertEqual(str(e), 'Malformed JWT')
 
 
@@ -62,7 +63,7 @@ class TestJWE(unittest.TestCase):
             try:
                 jose.decrypt(jose.deserialize_compact(token), bad_key)
                 self.fail()
-            except jose.Error as e:
+            except jse.Error as e:
                 self.assertEqual(str(e), 'Incorrect decryption.')
 
     def test_jwe_add_header(self):
@@ -88,7 +89,7 @@ class TestJWE(unittest.TestCase):
                 hdr, dt = jose.decrypt(jose.deserialize_compact(et),
                     rsa_priv_key)
                 self.fail()
-            except jose.AuthenticationError:
+            except jse.AuthenticationError:
                 pass
 
             self.assertEqual(jwt.claims, claims)
@@ -100,7 +101,7 @@ class TestJWE(unittest.TestCase):
 
         try:
             jose.decrypt(jose.deserialize_compact(bad), rsa_priv_key)
-        except jose.Error as e:
+        except jse.Error as e:
             self.assertEqual(
                 e.args[0],
                 'Unable to decode base64: Incorrect padding'
@@ -210,7 +211,7 @@ class TestJWE(unittest.TestCase):
     def test_encrypt_invalid_compression_error(self):
         try:
             jose.encrypt(claims, rsa_pub_key, compression='BAD')
-        except jose.Error:
+        except jse.Error:
             pass
         else:
             self.fail()
@@ -222,7 +223,7 @@ class TestJWE(unittest.TestCase):
 
         try:
             jose.decrypt(jose.JWE(*((header,) + (jwe[1:]))), rsa_priv_key)
-        except jose.Error as e:
+        except jse.Error as e:
             self.assertEqual(str(e),
                     'Unsupported compression algorithm: BAD')
         else:
@@ -255,7 +256,7 @@ class TestJWS(unittest.TestCase):
         jws = jose.sign(claims, jwk)
         try:
             jose.verify(jose.JWS(jws.header, jws.payload, 'asd'), jwk)
-        except jose.Error as e:
+        except jse.Error as e:
             self.assertEqual(str(e), 'Mismatched signatures')
 
 
