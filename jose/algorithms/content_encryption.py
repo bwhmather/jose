@@ -56,7 +56,7 @@ class AES_CBC_HMAC_SHA2_Base(ContentEncryptionAlgorithm):
 
     def _sign(self, key, ciphertext, iv, adata):
         # TODO this is completely the wrong way to select the hash function
-        hmac = HMAC.new(key, digestmod=sha(16*self.mac_key_size))
+        hmac = HMAC.new(key, digestmod=sha(16 * self.mac_key_size))
 
         hmac.update(_jwe_hash_str(ciphertext, iv, adata))
 
