@@ -88,8 +88,8 @@ class TestJWE(unittest.TestCase):
                 hdr, dt = jose.decrypt(jose.deserialize_compact(et),
                     rsa_priv_key)
                 self.fail()
-            except jose.Error as e:
-                self.assertEqual(str(e), 'Mismatched authentication tags')
+            except jose.AuthenticationError:
+                pass
 
             self.assertEqual(jwt.claims, claims)
 

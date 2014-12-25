@@ -7,6 +7,7 @@ from Crypto.Random import get_random_bytes
 from Crypto.Hash import HMAC, SHA256, SHA384, SHA512
 from Crypto.Cipher import AES
 
+from jose.exceptions import AuthenticationError
 from jose.utils import pad_pkcs7, unpad_pkcs7
 
 
@@ -104,7 +105,7 @@ class AES_CBC_HMAC_SHA2_Base(ContentEncryptionAlgorithm):
         calculated_auth_token = auth_digest[:self.token_size]
 
         if calculated_auth_token != auth_token:
-            raise Exception("Mismatched authentication tag")
+            raise AuthenticationError("Mismatched authentication tag")
 
         return plaintext
 

@@ -4,6 +4,12 @@ class Error(Exception):
     pass
 
 
+class AuthenticationError(Error):
+    """ Raised if an authentication check fails
+    """
+    pass
+
+
 class TimingError(Error):
     """ Raised if JWT is not valid at the requested time
     """
