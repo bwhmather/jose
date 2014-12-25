@@ -353,12 +353,6 @@ def _validate(claims, validate_claims, expiry_seconds):
         _check_not_before(now, not_before)
 
 
-def _jwe_hash_str(plaintext, iv, adata=b''):
-    # http://tools.ietf.org/html/
-    # draft-ietf-jose-json-web-algorithms-24#section-5.2.2.1
-    return b'.'.join((adata, iv, plaintext, bytes(len(adata))))
-
-
 def _jws_hash_str(header, claims):
     return b'.'.join((header.encode('ascii'), claims.encode('ascii')))
 
