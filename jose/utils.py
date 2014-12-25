@@ -13,8 +13,6 @@ except NameError:
 
 def pad_pkcs7(s, block_size):
     padding = block_size - (len(s) % block_size)
-    # TODO would be cleaner to do `bytes(sz) * sz` but python 2 behaves
-    # strangely
     return s + (chr(padding) * padding).encode('ascii')
 
 
