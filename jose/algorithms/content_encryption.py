@@ -4,11 +4,11 @@ logger = logging.getLogger(__name__)
 import struct
 
 from Crypto.Random import get_random_bytes
-from Crypto.Hash import HMAC, SHA256, SHA384, SHA512
+from Crypto.Hash import HMAC
 from Crypto.Cipher import AES
 
 from jose.exceptions import AuthenticationError
-from jose.utils import pad_pkcs7, unpad_pkcs7
+from jose.utils import pad_pkcs7, unpad_pkcs7, sha
 
 
 def _jwe_hash_str(ciphertext, iv, adata=b''):
@@ -56,14 +56,7 @@ class AES_CBC_HMAC_SHA2_Base(ContentEncryptionAlgorithm):
 
     def _sign(self, key, ciphertext, iv, adata):
         # TODO this is completely the wrong way to select the hash function
-        hmac = HMAC.new(
-            key,
-            digestmod={
-                16: SHA256,
-                24: SHA384,
-                32: SHA512,
-            }[self.mac_key_size]
-        )
+        hmac = HMAC.new(key, digestmod=sha(16*self.mac_key_size))
 
         hmac.update(_jwe_hash_str(ciphertext, iv, adata))
 
