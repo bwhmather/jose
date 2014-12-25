@@ -24,6 +24,7 @@ def unpad_pkcs7(s, block_size=None):
     if block_size is not None and len(s) % block_size:
         raise ValueError("padded string is not a multiple of block size")
 
+    # python 2 compatibility
     if sys.version_info < (3, 0):
         padding_len = ord(s[-1])
         padding = s[-1] * padding_len
