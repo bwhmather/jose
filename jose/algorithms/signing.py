@@ -6,29 +6,48 @@ from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_v1_5 as PKCS1_v1_5_SIG
 
 
-def _rsa_sign(s, key, mod=SHA256):
-    key = RSA.importKey(key)
-    hash = mod.new(s)
-    return PKCS1_v1_5_SIG.new(key).sign(hash)
+class SigningAlgorithm(object):
+    def __init__(self, key):
+        self.key = key
+
+    def sign(self, text):
+        raise NotImplementedError()
+
+    def verify(self, text, signature):
+        raise NotImplementedError()
 
 
-def _rsa_verify(s, key, sig, mod=SHA256):
-    key = RSA.importKey(key)
-    hash = mod.new(s)
-    return PKCS1_v1_5_SIG.new(key).verify(hash, sig)
+class PKCS_Base(SigningAlgorithm):
+    def __init__(self, key):
+        key = RSA.importKey(key)
+        super(PKCS_Base, self).__init__(key)
+
+    def _hash(self, text):
+        return self.mod.new(text)
+
+    def sign(self, text):
+        return PKCS1_v1_5_SIG.new(self.key).sign(self._hash(text))
+
+    def verify(self, text, signature):
+        return PKCS1_v1_5_SIG.new(self.key).verify(self._hash(text), signature)
 
 
-def _make_rsa_signature_algorithm(mod):
-    return (
-        lambda s, key: _rsa_sign(s, key, mod=mod),
-        lambda s, key, sig: _rsa_verify(s, key, sig, mod=mod)
-    )
+class RS256(PKCS_Base):
+    mod = SHA256
+
+
+class RS384(PKCS_Base):
+    mod = SHA384
+
+
+class RS512(PKCS_Base):
+    mod = SHA512
 
 
 _SIGNATURE_ALGORITHMS = {
-    'RS256': _make_rsa_signature_algorithm(SHA256),
-    'RS384': _make_rsa_signature_algorithm(SHA384),
-    'RS512': _make_rsa_signature_algorithm(SHA512),
+    'RS256': RS256,
+    'RS384': RS384,
+    'RS512': RS512,
 }
 
 

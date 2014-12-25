@@ -221,11 +221,6 @@ def sign(claims, jwk, add_header=None, alg='HS256'):
     :parameter alg: The algorithm to use to produce the signature.
     :rtype: :class:`~jose.JWS`
     """
-    try:
-        sign_fn, verify_fn = algorithms.signing.from_name(alg)
-    except KeyError:
-        sign_fn, verify_fn = algorithms.mac.from_name(alg)
-
     header = {}
 
     if add_header:
@@ -238,7 +233,15 @@ def sign(claims, jwk, add_header=None, alg='HS256'):
     header = b64encode_url(json_encode(header).encode('utf-8'))
     payload = b64encode_url(json_encode(claims).encode('utf-8'))
 
-    sig = b64encode_url(sign_fn(_jws_hash_str(header, payload), jwk['k']))
+    hash_str = _jws_hash_str(header, payload)
+
+    try:
+        signing_alg = algorithms.signing.from_name(alg)
+    except KeyError:
+        signing_alg = algorithms.mac.from_name(alg)
+
+    signing_alg_instance = signing_alg(jwk['k'])
+    sig = b64encode_url(signing_alg_instance.sign(hash_str))
 
     return JWS(header, payload, sig)
 
@@ -263,12 +266,17 @@ def verify(jws, jwk, validate_claims=True, expiry_seconds=None):
     """
     header, payload, sig = map(b64decode_url, jws)
     header = json_decode(header.decode('utf-8'))
-    try:
-        sign_fn, verify_fn = algorithms.signing.from_name(header['alg'])
-    except KeyError:
-        sign_fn, verify_fn = algorithms.mac.from_name(header['alg'])
 
-    if not verify_fn(_jws_hash_str(jws.header, jws.payload), jwk['k'], sig):
+    hash_str = _jws_hash_str(jws.header, jws.payload)
+
+    try:
+        signing_alg = algorithms.signing.from_name(header['alg'])
+    except KeyError:
+        signing_alg = algorithms.mac.from_name(header['alg'])
+
+    signing_alg_instance = signing_alg(jwk['k'])
+
+    if not signing_alg_instance.verify(hash_str, sig):
         raise Error('Mismatched signatures')
 
     claims = json_decode(b64decode_url(jws.payload).decode('utf-8'))
